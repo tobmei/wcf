@@ -24,8 +24,8 @@ class GridView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
-    private val nCol = 64
-    private val nRow = 64
+    private val nCol = 32
+    private val nRow = 32
 
     private var cellWidth: Float = 0f
     private var cellHeight: Float = 0f
