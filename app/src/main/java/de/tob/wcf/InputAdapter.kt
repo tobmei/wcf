@@ -28,7 +28,7 @@ class InputAdapter(
         val item = getItem(position)
         holder.inputImage.setInput(item)
         holder.inputImage.invalidate()
-        holder.inputDimensions.text = "${item.x}x${item.y}"
+        //holder.inputDimensions.text = "${item.x}x${item.y}"
         if (position != selectedPosition) {
             holder.card.cardElevation = 0F
             holder.itemView.scaleX = 1F
@@ -69,12 +69,7 @@ class InputAdapter(
             }
         }
         val inputImage: Preview = binding.ivInput
-        val inputDimensions: TextView = binding.tvDimensions
         val card: CardView = binding.cardViewInput
-
-        override fun toString(): String {
-            return super.toString() + " '" + inputDimensions.text + "'"
-        }
     }
 
     class InputComparator : DiffUtil.ItemCallback<Input>() {

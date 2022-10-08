@@ -37,7 +37,7 @@ class DrawingView @JvmOverloads constructor(
             val col = (index / nCol).absoluteValue
             val x = col * cellWidth
             val y = row * cellHeight
-            drawCell(canvas, x, y, pixel)
+            //drawCell(canvas, x, y, pixel)
         }
     }
 

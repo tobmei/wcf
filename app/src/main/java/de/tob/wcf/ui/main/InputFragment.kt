@@ -6,13 +6,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import de.tob.wcf.InputAdapter
 import de.tob.wcf.PatternAdapter
-import de.tob.wcf.Utility
+import de.tob.wcf.R
 import de.tob.wcf.databinding.FragmentInputBinding
+import kotlinx.coroutines.flow.collectLatest
 
 class InputFragment : Fragment() {
 
@@ -20,7 +22,7 @@ class InputFragment : Fragment() {
         fun newInstance() = InputFragment()
     }
 
-    private lateinit var viewBinding: FragmentInputBinding
+    private lateinit var binding: FragmentInputBinding
 
     private val viewModel: InputViewModel by viewModels()
 
@@ -28,33 +30,110 @@ class InputFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        viewBinding = FragmentInputBinding.inflate(layoutInflater)
+        binding = FragmentInputBinding.inflate(layoutInflater)
 
-        val inputList: RecyclerView = viewBinding.inputList
-        inputList.layoutManager = GridLayoutManager(context, 3)
-        val inputAdapter = InputAdapter {
-            //viewModel.currentPatterns.postValue(Utility.getPatternsFromInput(it))
+        bindToViewModel()
+        setListener()
+
+        return binding.root
+    }
+
+    private fun bindToViewModel() {
+        with (binding) {
+            val recyclerViewInput: RecyclerView = inputList
+            recyclerViewInput.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            val inputAdapter = InputAdapter {
+                viewModel.onAction(InputViewAction.onInputSelected(it))
+                btnGenerate.isEnabled = true
+            }
+            recyclerViewInput.adapter = inputAdapter
+            viewModel.allInputs.observe(viewLifecycleOwner){
+                inputAdapter.submitList(it)
+            }
+
+            val recyclerViewPattern: RecyclerView = patternList
+            recyclerViewPattern.layoutManager = GridLayoutManager(context, 5)
+            val patternAdapter = PatternAdapter {}
+            recyclerViewPattern.adapter = patternAdapter
+
+            lifecycleScope.launchWhenStarted {
+                viewModel.eventFlow.collectLatest { event ->
+                    when (event) {
+                        is InputViewEvent.PatternsGenerated -> {
+                            patternAdapter.submitList(event.patternList)
+                        }
+                        else -> {}
+                    }
+                }
+            }
+
+            lifecycleScope.launchWhenStarted {
+                viewModel.stateFlow.collectLatest { state ->
+                    when (state) {
+                        is InputViewState.Idle -> {
+                            setUpInitialState()
+                        }
+                        is InputViewState.Loading -> {
+                            patternAdapter.submitList(emptyList())
+                            progressBar.visibility = View.VISIBLE
+                            btnGenerate.isEnabled = false
+                            btnCreate.isEnabled = false
+                            hideOptions()
+                        }
+                        is InputViewState.Loaded -> {
+                            progressBar.visibility = View.INVISIBLE
+                            btnGenerate.isEnabled = true
+                            btnCreate.isEnabled = true
+                        }
+                        else -> {}
+                    }
+                }
+            }
         }
-        inputList.adapter = inputAdapter
-        viewModel.allInputs.observe(viewLifecycleOwner){
-            inputAdapter.submitList(it)
+    }
+
+    private fun setListener() {
+        with (binding) {
+            btnGenerate.setOnClickListener {
+                viewModel.onAction(InputViewAction.OnGenerateClicked(cbRotation.isChecked))
+            }
+
+            btnInputExpand.setOnClickListener {
+                toggleExpanded(inputList, it)
+            }
+
+            btnOptionsExpand.setOnClickListener {
+                toggleExpanded(clPatternOptions, it)
+            }
         }
+    }
 
-        val patternList = viewBinding.patternList
-        patternList.layoutManager = GridLayoutManager(context, 5)
-        val patternAdapter = PatternAdapter {
-
+    private fun setUpInitialState() {
+        with (binding) {
+            progressBar.visibility = View.INVISIBLE
+            clPatternOptions.visibility = View.GONE
+            btnOptionsExpand.setBackgroundResource(R.drawable.ic_arrow_right)
+            btnInputExpand.setBackgroundResource(R.drawable.ic_arrow_down)
+            btnGenerate.isEnabled = false
+            btnCreate.isEnabled = false
         }
-        patternList.adapter = patternAdapter
-        viewModel.currentPatterns.observe(viewLifecycleOwner) {
-            patternAdapter.submitList(it)
+    }
+
+    private fun hideOptions() {
+        binding.clPatternOptions.visibility = View.GONE
+        binding.btnOptionsExpand.setBackgroundResource(R.drawable.ic_arrow_right)
+    }
+
+    private fun toggleExpanded(v: View, b: View) {
+        when (v.visibility) {
+            View.VISIBLE -> {
+                v.visibility = View.GONE
+                b.setBackgroundResource(R.drawable.ic_arrow_right)
+            }
+            else -> {
+                v.visibility = View.VISIBLE
+                b.setBackgroundResource(R.drawable.ic_arrow_down)
+            }
         }
-
-
-        viewModel.currentSelection.observe(viewLifecycleOwner) { current ->
-
-        }
-
-        return viewBinding.root
     }
 }

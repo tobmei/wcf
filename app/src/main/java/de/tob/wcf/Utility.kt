@@ -8,7 +8,8 @@ import kotlin.math.absoluteValue
 
 object Utility {
 
-    fun getPatternsFromInput(input: Input) : List<Input> {
+    fun getPatternsFromInput(input: Input, rotation: Boolean) :
+            Triple<List<List<Int>>, Map<Int,Int>, Map<Int,List<BitSet>>> {
         val patternList = mutableListOf<List<Int>>()
         val patternToSum = mutableMapOf<Int, Int>()
         val patternToAdj = mutableMapOf<Int, MutableList<BitSet>>()
@@ -31,12 +32,17 @@ object Utility {
                         pattern.add(twoD[x + i]!![y + j])
                     }
                 }
-                val r90 = rotatePattern(pattern)
-                val r180 = rotatePattern(r90)
-                val r270 = rotatePattern(r180)
-                val hor = swapHorizontal(pattern)
-                val vert = swapVertical(pattern)
-                listOf(pattern, r90, r180, r270, hor, vert).forEach {
+                val list = if (rotation) {
+                    val r90 = rotatePattern(pattern)
+                    val r180 = rotatePattern(r90)
+                    val r270 = rotatePattern(r180)
+                    val hor = swapHorizontal(pattern)
+                    val vert = swapVertical(pattern)
+                    listOf(pattern, r90, r180, r270, hor, vert)
+                } else {
+                    listOf(pattern)
+                }
+                list.forEach {
                     if (!patternList.contains(it)) patternList.add(it)
 
                     patternToSum.putIfAbsent(patternList.indexOf(it), 1)?.let { sum ->
@@ -65,7 +71,7 @@ object Utility {
             }
         }
 
-        return patternList.map { Input(x=n, y=n, pixels=it) }
+        return Triple(patternList, patternToSum, patternToAdj)
     }
 
     private fun rightSide(pattern: List<Int>) = pattern.slice(3..8)
