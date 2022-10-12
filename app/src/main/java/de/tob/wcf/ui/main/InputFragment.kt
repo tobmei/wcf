@@ -6,24 +6,23 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import de.tob.wcf.InputAdapter
 import de.tob.wcf.PatternAdapter
 import de.tob.wcf.R
+import de.tob.wcf.addLifecycleLogging
 import de.tob.wcf.databinding.FragmentInputBinding
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class InputFragment : Fragment() {
-
-    companion object {
-        fun newInstance() = InputFragment()
-    }
-
     private lateinit var binding: FragmentInputBinding
-
     private val viewModel: InputViewModel by viewModels()
 
     override fun onCreateView(
@@ -31,6 +30,7 @@ class InputFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         binding = FragmentInputBinding.inflate(layoutInflater)
+        addLifecycleLogging()
 
         bindToViewModel()
         setListener()
@@ -47,8 +47,12 @@ class InputFragment : Fragment() {
                 btnGenerate.isEnabled = true
             }
             recyclerViewInput.adapter = inputAdapter
-            viewModel.allInputs.observe(viewLifecycleOwner){
-                inputAdapter.submitList(it)
+            lifecycleScope.launch {
+                viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    viewModel.allInputs.collect{
+                        inputAdapter.submitList(it)
+                    }
+                }
             }
 
             val recyclerViewPattern: RecyclerView = patternList
@@ -56,36 +60,37 @@ class InputFragment : Fragment() {
             val patternAdapter = PatternAdapter {}
             recyclerViewPattern.adapter = patternAdapter
 
-            lifecycleScope.launchWhenStarted {
-                viewModel.eventFlow.collectLatest { event ->
-                    when (event) {
-                        is InputViewEvent.PatternsGenerated -> {
-                            patternAdapter.submitList(event.patternList)
+            lifecycleScope.launch {
+                viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    viewModel.eventFlow.collect { event ->
+                        when (event) {
+                            is InputViewEvent.PatternsGenerated -> patternAdapter.submitList(event.patternList)
+                            is InputViewEvent.NavigateTo -> findNavController().navigate(event.destination, event.bundle)
                         }
-                        else -> {}
                     }
                 }
             }
 
-            lifecycleScope.launchWhenStarted {
-                viewModel.stateFlow.collectLatest { state ->
-                    when (state) {
-                        is InputViewState.Idle -> {
-                            setUpInitialState()
+            lifecycleScope.launch {
+                viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    viewModel.stateFlow.collectLatest { state ->
+                        when (state) {
+                            is InputViewState.Idle -> {
+                                setUpInitialState()
+                            }
+                            is InputViewState.Loading -> {
+                                patternAdapter.submitList(emptyList())
+                                progressBar.visibility = View.VISIBLE
+                                btnGenerate.isEnabled = false
+                                btnCreate.isEnabled = false
+                                hideOptions()
+                            }
+                            is InputViewState.Loaded -> {
+                                progressBar.visibility = View.INVISIBLE
+                                btnGenerate.isEnabled = true
+                                btnCreate.isEnabled = true
+                            }
                         }
-                        is InputViewState.Loading -> {
-                            patternAdapter.submitList(emptyList())
-                            progressBar.visibility = View.VISIBLE
-                            btnGenerate.isEnabled = false
-                            btnCreate.isEnabled = false
-                            hideOptions()
-                        }
-                        is InputViewState.Loaded -> {
-                            progressBar.visibility = View.INVISIBLE
-                            btnGenerate.isEnabled = true
-                            btnCreate.isEnabled = true
-                        }
-                        else -> {}
                     }
                 }
             }
@@ -104,6 +109,14 @@ class InputFragment : Fragment() {
 
             btnOptionsExpand.setOnClickListener {
                 toggleExpanded(clPatternOptions, it)
+            }
+
+            btnCreate.setOnClickListener {
+                viewModel.onAction(InputViewAction.OnCreateClicked)
+            }
+
+            btnDraw.setOnClickListener {
+                viewModel.onAction(InputViewAction.onDrawClicked)
             }
         }
     }

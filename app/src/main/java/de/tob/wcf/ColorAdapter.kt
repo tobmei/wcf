@@ -7,18 +7,19 @@ import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import de.tob.wcf.databinding.ColorItemBinding
 import de.tob.wcf.databinding.FragmentItemBinding
 import de.tob.wcf.db.Input
 
-class InputAdapter(
-    private val onItemClicked: (Input) -> Unit
-) : ListAdapter<Input, InputAdapter.ViewHolder>(PatternAdapter.InputComparator()) {
+class ColorAdapter(
+    private val onItemClicked: (Int) -> Unit
+) : ListAdapter<Int, ColorAdapter.ViewHolder>(ColorAdapter.ColorComparator()) {
 
     private var selectedPosition = RecyclerView.NO_POSITION
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
 
-        val binding = FragmentItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding = ColorItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return ViewHolder(binding) {
             onItemClicked(getItem(it))
         }
@@ -26,8 +27,7 @@ class InputAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
-        holder.inputImage.setInput(item)
-        holder.inputImage.invalidate()
+        holder.card.setCardBackgroundColor(item)
         //holder.inputDimensions.text = "${item.x}x${item.y}"
         if (position != selectedPosition) {
             holder.card.cardElevation = 0F
@@ -54,7 +54,7 @@ class InputAdapter(
     }
 
     inner class ViewHolder(
-        binding: FragmentItemBinding,
+        binding: ColorItemBinding,
         onItemClicked : (Int) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
         init {
@@ -67,17 +67,16 @@ class InputAdapter(
                 }
             }
         }
-        val inputImage: Preview = binding.ivInput
-        val card: CardView = binding.cardViewInput
+        val card: CardView = binding.colorCard
     }
 
-    class InputComparator : DiffUtil.ItemCallback<Input>() {
-        override fun areItemsTheSame(oldItem: Input, newItem: Input): Boolean {
-            return oldItem === newItem
+    class ColorComparator : DiffUtil.ItemCallback<Int>() {
+        override fun areItemsTheSame(oldItem: Int, newItem: Int): Boolean {
+            return oldItem == newItem
         }
 
-        override fun areContentsTheSame(oldItem: Input, newItem: Input): Boolean {
-            return ( (oldItem.pixels == newItem.pixels) && (oldItem.x == newItem.x) )
+        override fun areContentsTheSame(oldItem: Int, newItem: Int): Boolean {
+            return oldItem == newItem
         }
     }
 

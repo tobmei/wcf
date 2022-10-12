@@ -20,13 +20,13 @@ class OutputViewModel(application: Application) : AndroidViewModel(application) 
     private lateinit var currentPatternToAdj: Map<Int, List<BitSet>>
     private var rotationOption: Boolean = false
 
-    private val _stateFlow: MutableStateFlow<InputViewState> by lazy { MutableStateFlow(initialState()) }
-    val stateFlow: StateFlow<InputViewState> by lazy { _stateFlow }
+    private val _stateFlow: MutableStateFlow<OutputViewState> by lazy { MutableStateFlow(initialState()) }
+    val stateFlow: StateFlow<OutputViewState> by lazy { _stateFlow }
 
-    private val _eventFlow: MutableSharedFlow<InputViewEvent> = MutableSharedFlow()
-    val eventFlow: SharedFlow<InputViewEvent> = _eventFlow
+    private val _eventFlow: MutableSharedFlow<OutputViewState> = MutableSharedFlow()
+    val eventFlow: SharedFlow<OutputViewState> = _eventFlow
 
-    fun onAction(action: InputViewAction) {
+    fun onAction(action: OutputViewState) {
         Log.i(this.javaClass.name, "onAction(): $action")
     }
 
@@ -36,9 +36,9 @@ class OutputViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun initialState(): InputViewState = InputViewState.Idle
+    private fun initialState(): OutputViewState = error("")
 
-    private fun mutateState(callback: (InputViewState) -> InputViewState) {
+    private fun mutateState(callback: (OutputViewState) -> OutputViewState) {
         viewModelScope.launch {
             _stateFlow.take(1).collect {state ->
                 _stateFlow.emit(callback(state))
@@ -48,22 +48,18 @@ class OutputViewModel(application: Application) : AndroidViewModel(application) 
 }
 
 sealed class OutputViewState {
-    object Idle: InputViewState()
-    object Loading: InputViewState()
-    data class Loaded(val patterns: List<Input>): InputViewState()
 }
 
 sealed class OutputViewEvent {
-    data class GeneratePattern(val option: Int): InputViewEvent()
+
 }
+
 
 sealed class OutputViewAction {
-    object OnGenerateClicked: InputViewAction()
-    data class OnRotationChecked(val checked: Boolean): InputViewAction()
-    data class onInputSelected(val selection: Input): InputViewAction()
+
 }
 
-class WCFRepository(private val inputDao: InputDao, outputDao: OutputDao) {
+class WCFRepository(private val inputDao: InputDao, private val outputDao: OutputDao) {
 
     val allInputs: Flow<List<Input>> = inputDao.getAll()
 
