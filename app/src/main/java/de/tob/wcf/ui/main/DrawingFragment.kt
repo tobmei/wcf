@@ -46,7 +46,14 @@ class DrawingFragment : Fragment() {
                 Color.CYAN, Color.GREEN, Color.MAGENTA, Color.YELLOW
             )
         )
-        binding.drawingView.setup(Array<Int>(12*12){0}, 12, 12)
+
+        binding.btnClear.setOnClickListener {
+            viewModel.onAction(DrawingViewAction.ClearClicked)
+        }
+        binding.btnSave.setOnClickListener {
+            viewModel.onAction(DrawingViewAction.SaveClicked)
+            activity?.onBackPressed()
+        }
         processState()
 
         return binding.root

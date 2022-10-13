@@ -10,6 +10,7 @@ import de.tob.wcf.Utility
 import de.tob.wcf.WCFApplication
 import de.tob.wcf.db.Input
 import kotlinx.coroutines.Dispatchers.Default
+import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
@@ -63,6 +64,12 @@ class InputViewModel(application: Application) : AndroidViewModel(application) {
                     ))
                 }
             }
+            InputViewAction.onDeleteClicked -> {
+                viewModelScope.launch(Default) {
+                    repository.delete(currentSelection)
+                }
+            }
+            InputViewAction.onEditClicked -> TODO()
         }
     }
 
@@ -105,6 +112,8 @@ sealed class InputViewAction {
     data class OnGenerateClicked(val rotate: Boolean): InputViewAction()
     object OnCreateClicked: InputViewAction()
     object onDrawClicked: InputViewAction()
+    object onDeleteClicked: InputViewAction()
+    object onEditClicked: InputViewAction()
     data class onInputSelected(val selection: Input): InputViewAction()
 
 }

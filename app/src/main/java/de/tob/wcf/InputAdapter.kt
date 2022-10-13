@@ -12,7 +12,7 @@ import de.tob.wcf.db.Input
 
 class InputAdapter(
     private val onItemClicked: (Input) -> Unit
-) : ListAdapter<Input, InputAdapter.ViewHolder>(PatternAdapter.InputComparator()) {
+) : ListAdapter<Input, InputAdapter.ViewHolder>(InputComparator()) {
 
     private var selectedPosition = RecyclerView.NO_POSITION
 
@@ -27,7 +27,7 @@ class InputAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
         holder.inputImage.setInput(item)
-        holder.inputImage.invalidate()
+        //holder.inputImage.invalidate()
         //holder.inputDimensions.text = "${item.x}x${item.y}"
         if (position != selectedPosition) {
             holder.card.cardElevation = 0F
@@ -77,7 +77,7 @@ class InputAdapter(
         }
 
         override fun areContentsTheSame(oldItem: Input, newItem: Input): Boolean {
-            return ( (oldItem.pixels == newItem.pixels) && (oldItem.x == newItem.x) )
+            return oldItem.pixels == newItem.pixels
         }
     }
 

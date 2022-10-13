@@ -23,8 +23,8 @@ class OutputViewModel(application: Application) : AndroidViewModel(application) 
     private val _stateFlow: MutableStateFlow<OutputViewState> by lazy { MutableStateFlow(initialState()) }
     val stateFlow: StateFlow<OutputViewState> by lazy { _stateFlow }
 
-    private val _eventFlow: MutableSharedFlow<OutputViewState> = MutableSharedFlow()
-    val eventFlow: SharedFlow<OutputViewState> = _eventFlow
+    private val _eventFlow: MutableSharedFlow<OutputViewEvent> = MutableSharedFlow()
+    val eventFlow: SharedFlow<OutputViewEvent> = _eventFlow
 
     fun onAction(action: OutputViewState) {
         Log.i(this.javaClass.name, "onAction(): $action")
@@ -66,5 +66,9 @@ class WCFRepository(private val inputDao: InputDao, private val outputDao: Outpu
     @WorkerThread
     suspend fun insert(input: Input) {
         inputDao.insert(input)
+    }
+    @WorkerThread
+    suspend fun delete(input: Input) {
+        inputDao.delete(input.id)
     }
 }

@@ -45,11 +45,12 @@ class InputFragment : Fragment() {
             val inputAdapter = InputAdapter {
                 viewModel.onAction(InputViewAction.onInputSelected(it))
                 btnGenerate.isEnabled = true
+                btnDelete.isEnabled = true
             }
             recyclerViewInput.adapter = inputAdapter
             lifecycleScope.launch {
                 viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    viewModel.allInputs.collect{
+                    viewModel.allInputs.collect {
                         inputAdapter.submitList(it)
                     }
                 }
@@ -118,6 +119,10 @@ class InputFragment : Fragment() {
             btnDraw.setOnClickListener {
                 viewModel.onAction(InputViewAction.onDrawClicked)
             }
+
+            btnDelete.setOnClickListener {
+                viewModel.onAction(InputViewAction.onDeleteClicked)
+            }
         }
     }
 
@@ -129,6 +134,7 @@ class InputFragment : Fragment() {
             btnInputExpand.setBackgroundResource(R.drawable.ic_arrow_down)
             btnGenerate.isEnabled = false
             btnCreate.isEnabled = false
+            btnDelete.isEnabled = false
         }
     }
 

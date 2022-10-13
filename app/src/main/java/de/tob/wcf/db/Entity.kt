@@ -43,7 +43,7 @@ data class Output(
 
 @Dao
 interface InputDao {
-    @Query("SELECT * FROM input_table")
+    @Query("SELECT * FROM input_table ORDER BY id DESC")
     fun getAll(): Flow<List<Input>>
 
     @Query("DELETE FROM input_table WHERE id=:id")

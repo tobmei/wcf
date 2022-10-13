@@ -15,10 +15,7 @@ import androidx.annotation.ColorInt
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.findViewTreeViewModelStoreOwner
 import de.tob.wcf.db.Input
-import de.tob.wcf.ui.main.DrawingViewEvent
-import de.tob.wcf.ui.main.DrawingViewModel
-import de.tob.wcf.ui.main.DrawingViewState
-import de.tob.wcf.ui.main.OutputViewModel
+import de.tob.wcf.ui.main.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
@@ -47,11 +44,23 @@ class DrawingView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+        scope!!.launch {
+            viewModel.pixelFlow.collectLatest { pixelState ->
+                when (pixelState) {
+                    is PixelState.Pixels -> {
+                        pixels = pixelState.pixels
+                        nCol = Math.sqrt(pixelState.pixels.size.toDouble()).toInt()
+                        nRow = nCol
+                        invalidate()
+                    }
+                }
+            }
+        }
 
         scope!!.launch {
             viewModel.eventFlow.collect { event ->
-                println("event: $event")
                 when (event) {
                     is DrawingViewEvent.ColorChanged -> {
                         currentColor = event.color
@@ -60,25 +69,20 @@ class DrawingView @JvmOverloads constructor(
                         nCol = event.nCol
                         nRow = event.nRow
                     }
-                    is DrawingViewEvent.PixelsChanged -> {
-                        pixels = event.pixels
-                        invalidate()
-                    }
                 }
             }
         }
+    }
+
+    override fun invalidate() {
+        super.invalidate()
+        println("invalidate")
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         scope?.cancel()
         scope = null
-    }
-
-    fun setup(pixels: Array<Int>, nCol: Int, nRow: Int) {
-        this.pixels = pixels
-        this.nCol = nCol
-        this.nRow = nRow
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -113,7 +117,6 @@ class DrawingView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        println("pixels: ${pixels?.size}")
         pixels?.forEachIndexed { index, pixel ->
             val row = index % nRow
             val col = (index / nCol).absoluteValue
@@ -136,7 +139,4 @@ class DrawingView @JvmOverloads constructor(
         canvas?.drawRect(RectF(y, x, bottom, right), fillPaint)
         canvas?.drawRect(RectF(y, x, bottom, right), strokePaint)
     }
-
-    internal sealed class Drawing
-
 }
