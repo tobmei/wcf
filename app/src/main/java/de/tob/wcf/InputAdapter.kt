@@ -11,8 +11,9 @@ import de.tob.wcf.databinding.FragmentItemBinding
 import de.tob.wcf.db.Input
 
 class InputAdapter(
+    private val inputList: List<Input>,
     private val onItemClicked: (Input) -> Unit
-) : ListAdapter<Input, InputAdapter.ViewHolder>(InputComparator()) {
+) : RecyclerView.Adapter<InputAdapter.ViewHolder>() {
 
     private var selectedPosition = RecyclerView.NO_POSITION
 
@@ -20,12 +21,12 @@ class InputAdapter(
 
         val binding = FragmentItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return ViewHolder(binding) {
-            onItemClicked(getItem(it))
+            onItemClicked(inputList[it])
         }
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val item = getItem(position)
+        val item = inputList[position]
         holder.inputImage.setInput(item)
         //holder.inputImage.invalidate()
         //holder.inputDimensions.text = "${item.x}x${item.y}"
@@ -71,19 +72,13 @@ class InputAdapter(
         val card: CardView = binding.cardViewInput
     }
 
-    class InputComparator : DiffUtil.ItemCallback<Input>() {
-        override fun areItemsTheSame(oldItem: Input, newItem: Input): Boolean {
-            return oldItem === newItem
-        }
-
-        override fun areContentsTheSame(oldItem: Input, newItem: Input): Boolean {
-            return oldItem.pixels == newItem.pixels
-        }
-    }
-
     companion object {
         private const val PAYLOAD_SELECT = "PAYLOAD_SELECT"
         private const val PAYLOAD_DESELECT = "PAYLOAD_DESELECT"
+    }
+
+    override fun getItemCount(): Int {
+        return inputList.size
     }
 
 

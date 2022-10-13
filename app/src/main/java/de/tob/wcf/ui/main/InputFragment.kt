@@ -18,6 +18,7 @@ import de.tob.wcf.PatternAdapter
 import de.tob.wcf.R
 import de.tob.wcf.addLifecycleLogging
 import de.tob.wcf.databinding.FragmentInputBinding
+import de.tob.wcf.db.Input
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -25,12 +26,35 @@ class InputFragment : Fragment() {
     private lateinit var binding: FragmentInputBinding
     private val viewModel: InputViewModel by viewModels()
 
+    private lateinit var inputAdapter: InputAdapter
+    private lateinit var input: List<Input>
+    private lateinit var currentSelection: Input
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         binding = FragmentInputBinding.inflate(layoutInflater)
         addLifecycleLogging()
+
+        lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.allInputs.collect {
+                    input = it
+                    inputAdapter = InputAdapter(input) {
+                        currentSelection = it
+                        viewModel.onAction(InputViewAction.onInputSelected(it))
+                        binding.btnGenerate.isEnabled = true
+                        binding.btnDelete.isEnabled = true
+                    }
+                    with (binding) {
+                        val recyclerViewInput: RecyclerView = inputList
+                        recyclerViewInput.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+                        recyclerViewInput.adapter = inputAdapter
+                    }
+                }
+            }
+        }
 
         bindToViewModel()
         setListener()
@@ -40,21 +64,10 @@ class InputFragment : Fragment() {
 
     private fun bindToViewModel() {
         with (binding) {
-            val recyclerViewInput: RecyclerView = inputList
-            recyclerViewInput.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            val inputAdapter = InputAdapter {
-                viewModel.onAction(InputViewAction.onInputSelected(it))
-                btnGenerate.isEnabled = true
-                btnDelete.isEnabled = true
-            }
-            recyclerViewInput.adapter = inputAdapter
-            lifecycleScope.launch {
-                viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    viewModel.allInputs.collect {
-                        inputAdapter.submitList(it)
-                    }
-                }
-            }
+//            val recyclerViewInput: RecyclerView = inputList
+//            recyclerViewInput.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+//            recyclerViewInput.adapter = inputAdapter
+
 
             val recyclerViewPattern: RecyclerView = patternList
             recyclerViewPattern.layoutManager = GridLayoutManager(context, 5)
@@ -122,6 +135,7 @@ class InputFragment : Fragment() {
 
             btnDelete.setOnClickListener {
                 viewModel.onAction(InputViewAction.onDeleteClicked)
+                inputAdapter.notifyItemRemoved(input.indexOf(currentSelection))
             }
         }
     }
