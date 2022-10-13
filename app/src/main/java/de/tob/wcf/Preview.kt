@@ -27,7 +27,6 @@ class Preview @JvmOverloads constructor(
         this.input = input
         this.nRow = input.y
         this.nCol = input.x
-        invalidate()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {

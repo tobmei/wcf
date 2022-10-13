@@ -28,7 +28,7 @@ class InputAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = inputList[position]
         holder.inputImage.setInput(item)
-        //holder.inputImage.invalidate()
+        holder.inputImage.invalidate()
         //holder.inputDimensions.text = "${item.x}x${item.y}"
         if (position != selectedPosition) {
             holder.card.cardElevation = 0F

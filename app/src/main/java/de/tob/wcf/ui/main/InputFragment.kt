@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
@@ -19,8 +20,11 @@ import de.tob.wcf.R
 import de.tob.wcf.addLifecycleLogging
 import de.tob.wcf.databinding.FragmentInputBinding
 import de.tob.wcf.db.Input
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class InputFragment : Fragment() {
     private lateinit var binding: FragmentInputBinding
@@ -37,21 +41,20 @@ class InputFragment : Fragment() {
         binding = FragmentInputBinding.inflate(layoutInflater)
         addLifecycleLogging()
 
+        val recyclerViewInput: RecyclerView = binding.inputList
+        recyclerViewInput.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+
         lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.allInputs.collect {
-                    input = it
+                viewModel.allInputs.collect { list ->
+                    input = list
                     inputAdapter = InputAdapter(input) {
                         currentSelection = it
                         viewModel.onAction(InputViewAction.onInputSelected(it))
                         binding.btnGenerate.isEnabled = true
                         binding.btnDelete.isEnabled = true
                     }
-                    with (binding) {
-                        val recyclerViewInput: RecyclerView = inputList
-                        recyclerViewInput.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-                        recyclerViewInput.adapter = inputAdapter
-                    }
+                    recyclerViewInput.adapter = inputAdapter
                 }
             }
         }
@@ -64,11 +67,6 @@ class InputFragment : Fragment() {
 
     private fun bindToViewModel() {
         with (binding) {
-//            val recyclerViewInput: RecyclerView = inputList
-//            recyclerViewInput.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-//            recyclerViewInput.adapter = inputAdapter
-
-
             val recyclerViewPattern: RecyclerView = patternList
             recyclerViewPattern.layoutManager = GridLayoutManager(context, 5)
             val patternAdapter = PatternAdapter {}
