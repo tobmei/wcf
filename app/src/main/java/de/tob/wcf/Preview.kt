@@ -52,7 +52,7 @@ class Preview @JvmOverloads constructor(
         fillPaint.color = color
         val strokePaint = Paint()
         strokePaint.style = Paint.Style.STROKE
-        strokePaint.strokeWidth = 1F
+        strokePaint.strokeWidth = 2F
         strokePaint.color = Color.DKGRAY
         val bottom = y + cellHeight
         val right = x + cellWidth

@@ -20,12 +20,25 @@ import androidx.recyclerview.widget.RecyclerView
 import de.tob.wcf.ColorAdapter
 import de.tob.wcf.addLifecycleLogging
 import de.tob.wcf.databinding.FragmentDrawingBinding
+import de.tob.wcf.db.Input
 import kotlinx.coroutines.launch
 
 class DrawingFragment : Fragment() {
 
     private lateinit var binding: FragmentDrawingBinding
     private val viewModel: DrawingViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        arguments.let { bundle ->
+            if (bundle != null) {
+                bundle.getParcelable<Input>("toEdit")?.let {
+                    viewModel.onAction(DrawingViewAction.EditRecieved(it))
+                }
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,

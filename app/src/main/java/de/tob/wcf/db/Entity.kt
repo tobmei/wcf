@@ -2,6 +2,7 @@ package de.tob.wcf.db
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.os.Parcelable
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -13,19 +14,22 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.room.Update
 import androidx.sqlite.db.SupportSQLiteDatabase
 import de.tob.wcf.R
+import kotlinx.android.parcel.Parcelize
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
+@Parcelize
 @Entity(tableName = "input_table")
 data class Input(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val x: Int,
     val y: Int,
     val pixels: List<Int>
-)
+): Parcelable
 
 @Entity(tableName = "output_table",
     foreignKeys = [ForeignKey(
@@ -47,10 +51,13 @@ interface InputDao {
     fun getAll(): Flow<List<Input>>
 
     @Query("DELETE FROM input_table WHERE id=:id")
-    fun delete(id: Int)
+    suspend fun delete(id: Int)
 
     @Insert
     suspend fun insert(input: Input)
+
+    @Update
+    suspend fun update(input: Input)
 }
 
 @Dao

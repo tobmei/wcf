@@ -21,9 +21,7 @@
         android:id="@+id/outputFragment"
         android:name="de.tob.wcf.ui.main.OutputFragment"
         android:label="fragment_output"
-        tools:layout="@layout/fragment_output" >
-        <argument android:name="input" />
-    </fragment>
+        tools:layout="@layout/fragment_output" />
     <fragment
         android:id="@+id/drawingFragment"
         android:name="de.tob.wcf.ui.main.DrawingFragment"

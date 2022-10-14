@@ -8,7 +8,7 @@ import kotlin.math.absoluteValue
 
 object Utility {
 
-    fun getPatternsFromInput(input: Input, rotation: Boolean) :
+    fun getPatternsFromInput(input: Input) :
             Triple<List<List<Int>>, Map<Int,Int>, Map<Int,List<BitSet>>> {
         val patternList = mutableListOf<List<Int>>()
         val patternToSum = mutableMapOf<Int, Int>()
@@ -32,17 +32,12 @@ object Utility {
                         pattern.add(twoD[x + i]!![y + j])
                     }
                 }
-                val list = if (rotation) {
-                    val r90 = rotatePattern(pattern)
-                    val r180 = rotatePattern(r90)
-                    val r270 = rotatePattern(r180)
-                    val hor = swapHorizontal(pattern)
-                    val vert = swapVertical(pattern)
-                    listOf(pattern, r90, r180, r270, hor, vert)
-                } else {
-                    listOf(pattern)
-                }
-                list.forEach {
+                val r90 = rotatePattern(pattern)
+                val r180 = rotatePattern(r90)
+                val r270 = rotatePattern(r180)
+                val hor = swapHorizontal(pattern)
+                val vert = swapVertical(pattern)
+                listOf(pattern, r90, r180, r270, hor, vert).forEach {
                     if (!patternList.contains(it)) patternList.add(it)
 
                     patternToSum.putIfAbsent(patternList.indexOf(it), 1)?.let { sum ->

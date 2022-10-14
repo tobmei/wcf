@@ -12,7 +12,6 @@ import de.tob.wcf.databinding.FragmentItemPatternBinding
 import de.tob.wcf.db.Input
 
 class PatternAdapter(
-    private val showWeights: Boolean = false,
     private val onItemClicked: (Input) -> Unit
 ) : ListAdapter<Input, PatternAdapter.ViewHolder>(InputComparator()) {
 
@@ -27,11 +26,7 @@ class PatternAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
         holder.pattern.setInput(item)
-        if (showWeights) {
-            holder.tvWeight.text = "${item.x}x${item.y}"
-        } else {
-            holder.tvWeight.visibility = View.GONE
-        }
+        holder.tvWeight.visibility = View.GONE
     }
 
     inner class ViewHolder(

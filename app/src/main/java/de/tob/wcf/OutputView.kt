@@ -2,23 +2,20 @@ package de.tob.wcf
 
 import android.content.Context
 import android.graphics.*
-import android.os.Build
 import android.util.AttributeSet
 import android.util.Log
 import android.view.View
 import androidx.annotation.ColorInt
-import androidx.annotation.RequiresApi
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.findViewTreeLifecycleOwner
+import androidx.lifecycle.findViewTreeViewModelStoreOwner
+import androidx.lifecycle.lifecycleScope
+import de.tob.wcf.ui.main.*
+import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.Default
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import java.util.*
-import java.util.stream.Collectors.toList
 import kotlin.streams.toList
-
-private const val N = 3
-private const val INPUT = R.drawable.test15
 
 class GridView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -26,44 +23,61 @@ class GridView @JvmOverloads constructor(
 
     private val nCol = 32
     private val nRow = 32
-
     private var cellWidth: Float = 0f
     private var cellHeight: Float = 0f
-    private var outputCoords = mutableListOf<Pair<Float,Float>>()
-
     private var screenWidth = 0
     private var screenHeight = 0
+    private val entropy = Array(nCol*nRow) {-1}
+    private var outputCoords = mutableListOf <Pair<Float,Float>>()
 
-    private val inputX = 24
-    private val inputY = 24
-
-    private var patternList = mutableListOf<List<Int>>()
-    private var patternToSum = mutableMapOf<Int, Int>()
-    private var patternToAdj = mutableMapOf<Int, MutableList<BitSet>>()
-
-    private val bitmapInput = BitmapFactory.decodeResource(resources, INPUT)
+    private lateinit var patternList: List<List<Int>>
+    private lateinit var patternToSum: Map<Int, Int>
+    private lateinit var patternToAdj: Map<Int, MutableList<BitSet>>
 
     private var wave = arrayOf<BitSet>()
-    private val entropy = Array(nCol*nRow) {-1}
 
     private val random = Random()
 
-    fun start() {
-        invalidate()
-        generateWave()
+    private val viewModel by lazy {
+        ViewModelProvider(findViewTreeViewModelStoreOwner()!!)
+            .get(OutputViewModel::class.java)
+    }
 
-        CoroutineScope(Default).launch {
-            delay(2000)
-            collapse()
+    private var scope: CoroutineScope? = null
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        scope = findViewTreeLifecycleOwner()?.lifecycleScope
+        scope!!.launch(Default) {
+            viewModel.eventFlow.collect { event ->
+                Log.i(this.javaClass.name, "event collected: $event")
+                when (event) {
+                    is OutputViewEvent.Start -> {
+                        delay(1000)
+                        patternList = event.list
+                        patternToSum = event.sum
+                        patternToAdj = event.adj
+                        generateWave()
+                        collapse()
+                    }
+                    is OutputViewEvent.Redo -> {
+                        generateWave()
+                        collapse()
+                    }
+                }
+            }
         }
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        scope?.cancel()
+        scope = null
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         setupOutputDimensions(w,h)
-        getPatternsFromBitmap()
-        generateWave()
-        invalidate()
     }
 
     override fun onDraw(canvas: Canvas?) {
@@ -81,16 +95,21 @@ class GridView @JvmOverloads constructor(
         }
     }
 
-    private suspend fun collapse() {
+    private fun collapse() {
         var iteration = 0
         while (!isFinished()) {
             if(hasZeroWave()) {
                 println("zero wave")
-                break
+                wave.forEach { bits ->
+                    if (bits.cardinality() == 0) {
+                        bits.set(0, wave.size-1)
+                    }
+                }
+                //break
             }
 
             //get uncertain tile with lowest amount of possible patterns
-            var index = 0
+            var index = (0..wave.size).random()
             if(iteration > 0) {
                index = getCellWithLowestEntropy()
             }
@@ -109,9 +128,6 @@ class GridView @JvmOverloads constructor(
                     wave.get(currentCell).flip(it)
                 }
             entropy[currentCell] = 1
-
-            //set other patterns to false for current tile
-
             invalidate()
 
             //propagate changes to other tiles
@@ -242,86 +258,6 @@ class GridView @JvmOverloads constructor(
         }
     }
 
-    private fun getPatternsFromBitmap() {
-        val patterns = mutableListOf<List<Int>>()
-        for (x in 0 until inputX - N+1) {
-            for (y in 0 until inputY - N+1) {
-                //pattern starts here
-                val pattern = mutableListOf<Int>()
-                for (i in 0 until N) {
-                    for (j in 0 until N) {
-                        pattern.add(bitmapInput.getPixel(x + i, y + j))
-                    }
-                }
-                val r90 = rotatePattern(pattern)
-                val r180 = rotatePattern(r90)
-                val r270 = rotatePattern(r180)
-                val hor = swapHorizontal(pattern)
-                val vert = swapVertical(pattern)
-                listOf(pattern, r90, r180, r270, hor, vert).forEach {
-                    if (!patternList.contains(it)) patternList.add(it)
-
-                    patternToSum.putIfAbsent(patternList.indexOf(it), 1)?.let { sum ->
-                        patternToSum[patternList.indexOf(it)] = sum+1
-                    }
-
-                    patternToAdj.putIfAbsent(patternList.indexOf(it), mutableListOf(
-                        BitSet(patternList.size), BitSet(patternList.size),
-                        BitSet(patternList.size), BitSet(patternList.size)))
-                }
-            }
-        }
-        patternToAdj.keys.forEach { patternId ->
-            val currentPattern = patternList.get(patternId)
-            patternList.forEachIndexed { index, pattern ->
-                if (topSide(currentPattern) == bottomSide(pattern) )
-                    patternToAdj[patternId]!!.get(0).flip(patternList.indexOf(pattern))
-                if (rightSide(currentPattern) == leftSide(pattern) )
-                    patternToAdj[patternId]!!.get(1).flip(patternList.indexOf(pattern))
-                if (bottomSide(currentPattern) == topSide(pattern) )
-                    patternToAdj[patternId]!!.get(2).flip(patternList.indexOf(pattern))
-                if (leftSide(currentPattern) == rightSide(pattern) )
-                    patternToAdj[patternId]!!.get(3).flip(patternList.indexOf(pattern))
-            }
-        }
-
-    }
-
-    private fun rightSide(pattern: List<Int>) = pattern.slice(3..8)
-    private fun leftSide(pattern: List<Int>) = pattern.slice(0..5)
-    private fun topSide(pattern: List<Int>) = pattern.slice(listOf(0,3,6,1,4,7))
-    private fun bottomSide(pattern: List<Int>) = pattern.slice(listOf(1,4,7,2,5,8))
-
-    private fun rotatePattern(pattern: List<Int>) : List<Int> {
-        val rotation = MutableList(pattern.size) {0}
-        pattern.forEachIndexed { index, i ->
-            rotation[(index*3+2)%10] = i
-        }
-        return rotation
-    }
-
-    private fun swapVertical(pattern: List<Int>) : List<Int> {
-        val out = pattern.toMutableList()
-        out.swap(0,6)
-        out.swap(1,7)
-        out.swap(2,8)
-        return out
-    }
-
-    private fun swapHorizontal(pattern: List<Int>) : List<Int> {
-        val out = pattern.toMutableList()
-        out.swap(0,2)
-        out.swap(3,5)
-        out.swap(6,8)
-        return out
-    }
-
-    fun <T> MutableList<T>.swap(index1: Int, index2: Int){
-        val tmp = this[index1]
-        this[index1] = this[index2]
-        this[index2] = tmp
-    }
-
     private fun setupOutputDimensions(w: Int, h: Int) {
         screenWidth = w
         screenHeight = h
@@ -348,11 +284,11 @@ class GridView @JvmOverloads constructor(
             getPaint(color)
             //getPaint(getRandomColor())
         )
-        invalidate()
     }
 
     private fun getPaint(@ColorInt color: Int) : Paint{
         val paint = Paint()
+        paint.blendMode = BlendMode.MULTIPLY
         paint.color = color
         return paint
     }

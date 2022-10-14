@@ -3,6 +3,7 @@ package de.tob.wcf.ui.main
 import android.app.Application
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import de.tob.wcf.R
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class InputViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -22,7 +24,6 @@ class InputViewModel(application: Application) : AndroidViewModel(application) {
 
     val allInputs = repository.allInputs
 
-    private lateinit var currentSelection: Input
     private lateinit var currentPatternInputList: List<Input>
     private lateinit var currentPatternList: List<List<Int>>
     private lateinit var currentPatternToSum: Map<Int,Int>
@@ -31,8 +32,10 @@ class InputViewModel(application: Application) : AndroidViewModel(application) {
     private val _stateFlow: MutableStateFlow<InputViewState> by lazy { MutableStateFlow(initialState()) }
     val stateFlow: StateFlow<InputViewState> by lazy { _stateFlow }
 
-    private val _eventFlow: MutableSharedFlow<InputViewEvent> =
-        MutableSharedFlow()
+    private val _currentSelectionFlow: MutableStateFlow<SelectionState> by lazy { MutableStateFlow(SelectionState.NoSelection) }
+    val currentSelectionFlow: StateFlow<SelectionState> by lazy { _currentSelectionFlow }
+
+    private val _eventFlow: MutableSharedFlow<InputViewEvent> = MutableSharedFlow()
     val eventFlow: SharedFlow<InputViewEvent> = _eventFlow
 
     fun onAction(action: InputViewAction) {
@@ -40,49 +43,68 @@ class InputViewModel(application: Application) : AndroidViewModel(application) {
         when (action) {
             is InputViewAction.OnGenerateClicked -> {
                 mutateState { InputViewState.Loading }
-                generatePatterns(action.rotate)
+                generatePatterns()
             }
-            is InputViewAction.onInputSelected -> currentSelection = action.selection
+            is InputViewAction.onInputSelected -> mutateSelectionState { SelectionState.CurrentSelection(action.selection) }
             is InputViewAction.OnCreateClicked -> {
                 viewModelScope.launch {
                     _eventFlow.emit(InputViewEvent.NavigateTo(
                         R.id.action_inputFragment_to_outputFragment,
                         Bundle().apply {
                             putSerializable("input", currentPatternList as ArrayList)
+                            putSerializable("sum", currentPatternToSum as HashMap)
+                            putSerializable("adj", currentPatternToAdj as HashMap)
                         }
                     ))
+                    mutateState { InputViewState.Idle }
                 }
             }
             InputViewAction.onDrawClicked -> {
                 viewModelScope.launch {
-                    _eventFlow.emit(InputViewEvent.NavigateTo(
-                        R.id.action_inputFragment_to_drawingFragment,
-                        Bundle().apply {
-                            putInt("nCol", 12)
-                            putInt("nRow", 12)
-                        }
-                    ))
+                    _eventFlow.emit(InputViewEvent.NavigateTo(R.id.action_inputFragment_to_drawingFragment))
+                    mutateState { InputViewState.Idle }
                 }
             }
             InputViewAction.onDeleteClicked -> {
                 viewModelScope.launch(Default) {
-                    repository.delete(currentSelection)
+                    when (currentSelectionFlow.value) {
+                        is SelectionState.CurrentSelection -> {
+                            repository.delete((currentSelectionFlow.value as SelectionState.CurrentSelection).currentSelection)
+                            mutateState { InputViewState.Idle }
+                        }
+                        SelectionState.NoSelection -> {} //never happens
+                    }
                 }
             }
-            InputViewAction.onEditClicked -> TODO()
+            InputViewAction.onEditClicked -> {
+                viewModelScope.launch {
+                    _eventFlow.emit(InputViewEvent.NavigateTo(
+                        R.id.action_inputFragment_to_drawingFragment,
+                        Bundle().apply {
+                            putParcelable("toEdit", (currentSelectionFlow.value as SelectionState.CurrentSelection).currentSelection)
+                        }
+                    ))
+                    mutateState { InputViewState.Idle }
+                }
+            }
         }
     }
 
-    private fun generatePatterns(rotate: Boolean) {
+    private fun generatePatterns() {
         viewModelScope.launch(Default) {
-            Utility.getPatternsFromInput(currentSelection, rotate).let { triple ->
-                currentPatternInputList = triple.first.map { Input(x=3, y=3, pixels=it) }
-                currentPatternList = triple.first
-                currentPatternToSum = triple.second
-                currentPatternToAdj = triple.third
+            when (currentSelectionFlow.value) {
+                is SelectionState.CurrentSelection -> {
+                    Utility.getPatternsFromInput((currentSelectionFlow.value as SelectionState.CurrentSelection).currentSelection).let { triple ->
+                        currentPatternInputList = triple.first.map { Input(x=3, y=3, pixels=it) }
+                        currentPatternList = triple.first
+                        currentPatternToSum = triple.second
+                        currentPatternToAdj = triple.third
+                    }
+                    _eventFlow.emit(InputViewEvent.PatternsGenerated(currentPatternInputList))
+                    mutateState { InputViewState.Loaded }
+                }
+                SelectionState.NoSelection -> {}
             }
-            _eventFlow.emit(InputViewEvent.PatternsGenerated(currentPatternInputList))
-            mutateState { InputViewState.Loaded }
         }
     }
 
@@ -95,6 +117,18 @@ class InputViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+    private fun mutateSelectionState(callback: (SelectionState) -> SelectionState) {
+        viewModelScope.launch {
+            _currentSelectionFlow.take(1).collect { state ->
+                _currentSelectionFlow.emit(callback(state))
+            }
+        }
+    }
+}
+
+sealed class SelectionState {
+    object NoSelection: SelectionState()
+    data class CurrentSelection(val currentSelection: Input): SelectionState()
 }
 
 sealed class InputViewState {
@@ -105,11 +139,11 @@ sealed class InputViewState {
 
 sealed class InputViewEvent {
     data class PatternsGenerated(val patternList: List<Input>): InputViewEvent()
-    data class NavigateTo(val destination: Int, val bundle: Bundle): InputViewEvent()
+    data class NavigateTo(val destination: Int, val bundle: Bundle? = null): InputViewEvent()
 }
 
 sealed class InputViewAction {
-    data class OnGenerateClicked(val rotate: Boolean): InputViewAction()
+    object OnGenerateClicked: InputViewAction()
     object OnCreateClicked: InputViewAction()
     object onDrawClicked: InputViewAction()
     object onDeleteClicked: InputViewAction()

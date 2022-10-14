@@ -28,11 +28,9 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     private val _pixelFlow: MutableStateFlow<PixelState> = MutableStateFlow(initialPixelState())
     val pixelFlow: StateFlow<PixelState> = _pixelFlow
 
-    private val repository = (application as WCFApplication).repository
+    private var isEdit = false
 
-    private val nCol = 4
-    private val nRow = 4
-    private var pixels = emptyArray<Int>()
+    private val repository = (application as WCFApplication).repository
 
     fun onAction(action: DrawingViewAction) {
         Log.i(this.javaClass.name, "onAction(): $action")
@@ -42,18 +40,27 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
                     _eventFlow.emit(DrawingViewEvent.ColorChanged(action.color))
                 }
             }
-            DrawingViewAction.SaveClicked -> {
+            is DrawingViewAction.SaveClicked -> {
                 viewModelScope.launch {
                     _pixelFlow.collect { pixelState ->
                         when (pixelState) {
                             is PixelState.Pixels -> {
-                                repository.insert(Input(x = 12, y = 12, pixels = pixelState.pixels.toList()))
+                                if (isEdit) {
+                                    repository.update(pixelState.input)
+                                } else {
+                                    repository.insert(pixelState.input)
+                                    isEdit = false
+                                }
                             }
                         }
                     }
                 }
             }
-            DrawingViewAction.ClearClicked -> mutatePixelState { initialPixelState() }
+            is DrawingViewAction.ClearClicked -> mutatePixelState { initialPixelState() }
+            is DrawingViewAction.EditRecieved -> {
+                    isEdit = true
+                    mutatePixelState { PixelState.Pixels(action.input) }
+            }
         }
     }
 
@@ -65,7 +72,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun mutatePixelState(callback: (PixelState) -> PixelState) {
+    fun mutatePixelState(callback: (PixelState) -> PixelState) {
         viewModelScope.launch {
             _pixelFlow.take(1).collect {state ->
                 _pixelFlow.emit(callback(state))
@@ -74,7 +81,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     }
     private fun initialState(): DrawingViewState = DrawingViewState.Foo
 
-    private fun initialPixelState() = PixelState.Pixels(Array(12*12) {0})
+    private fun initialPixelState() = PixelState.Pixels(Input(x=12,y=12,pixels=(Array(12*12) {0}).toList()))
 }
 
 sealed class DrawingViewState {
@@ -82,7 +89,7 @@ sealed class DrawingViewState {
 }
 
 sealed class PixelState {
-    data class Pixels(val pixels: Array<Int>): PixelState()
+    data class Pixels(val input: Input): PixelState()
 }
 
 sealed class DrawingViewEvent {
@@ -94,4 +101,5 @@ sealed class DrawingViewAction {
     data class ColorSelected(val color: Int): DrawingViewAction()
     object SaveClicked: DrawingViewAction()
     object ClearClicked: DrawingViewAction()
+    data class EditRecieved(val input: Input): DrawingViewAction()
 }

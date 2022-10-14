@@ -23,16 +23,22 @@ class OutputViewModel(application: Application) : AndroidViewModel(application) 
     private val _stateFlow: MutableStateFlow<OutputViewState> by lazy { MutableStateFlow(initialState()) }
     val stateFlow: StateFlow<OutputViewState> by lazy { _stateFlow }
 
-    private val _eventFlow: MutableSharedFlow<OutputViewEvent> = MutableSharedFlow()
+    private val _eventFlow: MutableSharedFlow<OutputViewEvent> = MutableSharedFlow(replay = 1)
     val eventFlow: SharedFlow<OutputViewEvent> = _eventFlow
 
-    fun onAction(action: OutputViewState) {
+    fun onAction(action: OutputViewAction) {
         Log.i(this.javaClass.name, "onAction(): $action")
-    }
-
-    private fun generatePatterns() {
-        viewModelScope.launch(Default) {
-
+        when (action) {
+            is OutputViewAction.RedoClicked -> {
+                viewModelScope.launch {
+                    _eventFlow.emit(OutputViewEvent.Redo)
+                }
+            }
+            is OutputViewAction.DataRecieved -> {
+                viewModelScope.launch {
+                    _eventFlow.emit(OutputViewEvent.Start(action.list, action.sum, action.adj))
+                }
+            }
         }
     }
 
@@ -51,12 +57,21 @@ sealed class OutputViewState {
 }
 
 sealed class OutputViewEvent {
-
+    data class Start(
+        val list: List<List<Int>>,
+        val sum: Map<Int, Int>,
+        val adj: Map<Int, MutableList<BitSet>>
+    ): OutputViewEvent()
+    object Redo: OutputViewEvent()
 }
 
-
 sealed class OutputViewAction {
-
+    object RedoClicked: OutputViewAction()
+    data class DataRecieved(
+        val list: List<List<Int>>,
+        val sum: Map<Int, Int>,
+        val adj: Map<Int, MutableList<BitSet>>
+        ): OutputViewAction()
 }
 
 class WCFRepository(private val inputDao: InputDao, private val outputDao: OutputDao) {
@@ -64,11 +79,10 @@ class WCFRepository(private val inputDao: InputDao, private val outputDao: Outpu
     val allInputs: Flow<List<Input>> = inputDao.getAll()
 
     @WorkerThread
-    suspend fun insert(input: Input) {
-        inputDao.insert(input)
-    }
+    suspend fun insert(input: Input) = inputDao.insert(input)
     @WorkerThread
-    suspend fun delete(input: Input) {
-        inputDao.delete(input.id)
-    }
+    suspend fun delete(input: Input) = inputDao.delete(input.id)
+    @WorkerThread
+    suspend fun update(input: Input) = inputDao.update(input)
+
 }

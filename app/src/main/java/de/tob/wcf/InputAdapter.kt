@@ -1,5 +1,6 @@
 package de.tob.wcf
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.TextView
@@ -15,7 +16,7 @@ class InputAdapter(
     private val onItemClicked: (Input) -> Unit
 ) : RecyclerView.Adapter<InputAdapter.ViewHolder>() {
 
-    private var selectedPosition = RecyclerView.NO_POSITION
+    private var selectedPosition = 0
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
 
@@ -34,6 +35,12 @@ class InputAdapter(
             holder.card.cardElevation = 0F
             holder.itemView.scaleX = 1F
             holder.itemView.scaleY = 1F
+            holder.card.setCardBackgroundColor(Color.WHITE)
+        } else {
+            holder.card.cardElevation = 5F
+            holder.itemView.scaleX = 1.15F
+            holder.itemView.scaleY = 1.15F
+            holder.card.setCardBackgroundColor(Color.LTGRAY)
         }
     }
 
@@ -44,10 +51,12 @@ class InputAdapter(
                     holder.card.cardElevation = 5F
                     holder.itemView.scaleX = 1.15F
                     holder.itemView.scaleY = 1.15F
+                    holder.card.setCardBackgroundColor(Color.LTGRAY)
                 } else if (it == PAYLOAD_DESELECT) {
                     holder.card.cardElevation = 0F
                     holder.itemView.scaleX = 1F
                     holder.itemView.scaleY = 1F
+                    holder.card.setCardBackgroundColor(Color.WHITE)
                 }
             }
         } else

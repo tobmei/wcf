@@ -34,6 +34,7 @@ class DrawingView @JvmOverloads constructor(
 
     private var scope: CoroutineScope? = null
 
+    private lateinit var input: Input
     private var pixels: Array<Int>? = null
     private var currentColor = Color.DKGRAY
 
@@ -50,14 +51,15 @@ class DrawingView @JvmOverloads constructor(
             viewModel.pixelFlow.collectLatest { pixelState ->
                 when (pixelState) {
                     is PixelState.Pixels -> {
-                        pixels = pixelState.pixels
-                        nCol = Math.sqrt(pixelState.pixels.size.toDouble()).toInt()
+                        input = pixelState.input
+                        pixels = pixelState.input.pixels.toTypedArray()
+                        nCol = Math.sqrt(pixels!!.size.toDouble()).toInt()
                         nRow = nCol
                         invalidate()
                     }
                 }
             }
-        }
+        }.cancel()
 
         scope!!.launch {
             viewModel.eventFlow.collect { event ->
@@ -72,11 +74,6 @@ class DrawingView @JvmOverloads constructor(
                 }
             }
         }
-    }
-
-    override fun invalidate() {
-        super.invalidate()
-        println("invalidate")
     }
 
     override fun onDetachedFromWindow() {
@@ -95,6 +92,7 @@ class DrawingView @JvmOverloads constructor(
                     invalidate()
                 }
             }
+            viewModel.mutatePixelState { PixelState.Pixels(input.copy(pixels=pixels!!.toList())) }
             return true
         }
         return false
