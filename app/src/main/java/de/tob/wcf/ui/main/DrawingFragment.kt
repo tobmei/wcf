@@ -55,7 +55,7 @@ class DrawingFragment : Fragment() {
         recycler.adapter = colorAdapter
         colorAdapter.submitList(
             listOf(
-                Color.RED, Color.DKGRAY, Color.BLACK, Color.BLUE,
+                Color.BLACK, Color.DKGRAY, Color.GRAY, Color.LTGRAY, Color.BLUE,
                 Color.CYAN, Color.GREEN, Color.MAGENTA, Color.YELLOW
             )
         )
@@ -67,6 +67,24 @@ class DrawingFragment : Fragment() {
             viewModel.onAction(DrawingViewAction.SaveClicked)
             activity?.onBackPressed()
         }
+        binding.btnFill.setOnClickListener {
+            binding.btnPen.scaleX = 1F
+            binding.btnPen.scaleY = 1F
+            binding.btnFill.scaleX = 1.3F
+            binding.btnFill.scaleY = 1.3F
+            viewModel.onAction(DrawingViewAction.FillClicked)
+        }
+        binding.btnPen.setOnClickListener {
+            binding.btnPen.scaleX = 1.3F
+            binding.btnPen.scaleY = 1.3F
+            binding.btnFill.scaleX = 1F
+            binding.btnFill.scaleY = 1F
+            viewModel.onAction(DrawingViewAction.DrawClicked)
+        }
+        binding.btnPen.scaleX = 1.3F
+        binding.btnPen.scaleY = 1.3F
+        binding.btnFill.scaleX = 1F
+        binding.btnFill.scaleY = 1F
         processState()
 
         return binding.root

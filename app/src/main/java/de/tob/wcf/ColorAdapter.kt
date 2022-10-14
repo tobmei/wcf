@@ -15,7 +15,7 @@ class ColorAdapter(
     private val onItemClicked: (Int) -> Unit
 ) : ListAdapter<Int, ColorAdapter.ViewHolder>(ColorAdapter.ColorComparator()) {
 
-    private var selectedPosition = RecyclerView.NO_POSITION
+    private var selectedPosition = 0
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
 
@@ -33,6 +33,10 @@ class ColorAdapter(
             holder.card.cardElevation = 0F
             holder.itemView.scaleX = 1F
             holder.itemView.scaleY = 1F
+        } else {
+            holder.card.cardElevation = 5F
+            holder.itemView.scaleX = 1.3F
+            holder.itemView.scaleY = 1.3F
         }
     }
 
@@ -41,8 +45,8 @@ class ColorAdapter(
             payloads.forEach {
                 if(it == PAYLOAD_SELECT){
                     holder.card.cardElevation = 5F
-                    holder.itemView.scaleX = 1.15F
-                    holder.itemView.scaleY = 1.15F
+                    holder.itemView.scaleX = 1.3F
+                    holder.itemView.scaleY = 1.3F
                 } else if (it == PAYLOAD_DESELECT) {
                     holder.card.cardElevation = 0F
                     holder.itemView.scaleX = 1F

@@ -36,7 +36,8 @@ class DrawingView @JvmOverloads constructor(
 
     private lateinit var input: Input
     private var pixels: Array<Int>? = null
-    private var currentColor = Color.DKGRAY
+    private var currentColor = Color.BLACK
+    private var fill = false
 
     private var cellWidth = 0F
     private var cellHeight = 0F
@@ -71,6 +72,21 @@ class DrawingView @JvmOverloads constructor(
                         nCol = event.nCol
                         nRow = event.nRow
                     }
+                    DrawingViewEvent.Clear -> {
+                        pixels?.forEachIndexed { index, _ ->
+                            pixels?.set(index, 0)
+                        }
+                        invalidate()
+                    }
+                }
+            }
+        }
+
+        scope!!.launch {
+            viewModel.stateFlow.collect { state ->
+                when (state) {
+                    is DrawingViewState.Draw -> fill = false
+                    DrawingViewState.Fill -> fill = true
                 }
             }
         }
@@ -88,7 +104,13 @@ class DrawingView @JvmOverloads constructor(
             when (event.action) {
                 MotionEvent.ACTION_MOVE -> {
                     val idx = coordToIndex(event.x,event.y)
-                    pixels?.set(idx, currentColor)
+                    if (fill) {
+                        pixels?.forEachIndexed { index, _ ->
+                            pixels?.set(index, currentColor)
+                        }
+                    } else {
+                        pixels?.set(idx, currentColor)
+                    }
                     invalidate()
                 }
             }

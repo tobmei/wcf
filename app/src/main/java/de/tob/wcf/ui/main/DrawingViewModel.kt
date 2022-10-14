@@ -56,11 +56,17 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
                     }
                 }
             }
-            is DrawingViewAction.ClearClicked -> mutatePixelState { initialPixelState() }
+            is DrawingViewAction.ClearClicked -> {
+                viewModelScope.launch {
+                    _eventFlow.emit(DrawingViewEvent.Clear)
+                }
+            }
             is DrawingViewAction.EditRecieved -> {
                     isEdit = true
                     mutatePixelState { PixelState.Pixels(action.input) }
             }
+            DrawingViewAction.DrawClicked -> mutateState { DrawingViewState.Draw }
+            DrawingViewAction.FillClicked -> mutateState { DrawingViewState.Fill }
         }
     }
 
@@ -79,13 +85,14 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
-    private fun initialState(): DrawingViewState = DrawingViewState.Foo
+    private fun initialState(): DrawingViewState = DrawingViewState.Draw
 
     private fun initialPixelState() = PixelState.Pixels(Input(x=12,y=12,pixels=(Array(12*12) {0}).toList()))
 }
 
 sealed class DrawingViewState {
-    object Foo: DrawingViewState()
+    object Fill: DrawingViewState()
+    object Draw: DrawingViewState()
 }
 
 sealed class PixelState {
@@ -95,11 +102,14 @@ sealed class PixelState {
 sealed class DrawingViewEvent {
     data class ColorChanged(val color: Int): DrawingViewEvent()
     data class CanvasSetup(val nCol: Int, val nRow: Int): DrawingViewEvent()
+    object Clear: DrawingViewEvent()
 }
 
 sealed class DrawingViewAction {
     data class ColorSelected(val color: Int): DrawingViewAction()
     object SaveClicked: DrawingViewAction()
     object ClearClicked: DrawingViewAction()
+    object FillClicked: DrawingViewAction()
+    object DrawClicked: DrawingViewAction()
     data class EditRecieved(val input: Input): DrawingViewAction()
 }
