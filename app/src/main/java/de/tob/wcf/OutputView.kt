@@ -15,20 +15,23 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.Default
 import kotlinx.coroutines.flow.collectLatest
 import java.util.*
+import kotlin.collections.HashMap
+import kotlin.math.absoluteValue
 import kotlin.streams.toList
 
 class GridView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
-    private val nCol = 48
-    private val nRow = 48
+    private val nCol = 64
+    private val nRow = 64
     private var cellWidth: Float = 0f
     private var cellHeight: Float = 0f
     private var screenWidth = 0
     private var screenHeight = 0
     private val entropy = Array(nCol*nRow) {-1}
     private var outputCoords = mutableListOf <Pair<Float,Float>>()
+    private lateinit var matrixAdj: HashMap<Int, MutableList<Int>>
 
     private lateinit var patternList: List<List<Int>>
     private lateinit var patternToSum: Map<Int, Int>
@@ -47,8 +50,8 @@ class GridView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        scope = findViewTreeLifecycleOwner()?.lifecycleScope
-        scope!!.launch(Default) {
+        scope = CoroutineScope(SupervisorJob() + Default)
+        scope!!.launch {
             viewModel.eventFlow.collect { event ->
                 Log.i(this.javaClass.name, "event collected: $event")
                 when (event) {
@@ -133,6 +136,8 @@ class GridView @JvmOverloads constructor(
             //propagate changes to other tiles
             ripple(currentCell)
         }
+        scope?.cancel()
+        scope = null
         Log.d("-----", "Finshed")
     }
 
@@ -163,83 +168,55 @@ class GridView @JvmOverloads constructor(
             entropy[index] = bitSet.cardinality()
         }
 
-    private fun ripple(position: Int) {
-        val rippledCells = mutableListOf<Int>()
-        val fixedCells = mutableListOf<Int>()
-        var currentPosition = position
-
-        while (true) {
-            val currentWave = wave[currentPosition]
-            val outY = outputCoords[currentPosition].first
-            val outX = outputCoords[currentPosition].second
-            val rightWaveIndex = outputCoords.indexOf(Pair(outY,outX+cellWidth))
-            val leftWaveIndex = outputCoords.indexOf(Pair(outY,outX-cellWidth))
-            val topWaveIndex = outputCoords.indexOf(Pair(outY-cellHeight,outX))
-            val bottomWaveIndex = outputCoords.indexOf(Pair(outY+cellHeight,outX))
-
-            val validIds = currentWave.stream()?.toArray()
-            if (validIds?.isEmpty() == true) {
-                return
-            }
-
-            if (!fixedCells.contains(rightWaveIndex) && rightWaveIndex != -1 && wave[rightWaveIndex].cardinality() > 1) {
-                val oldWave = wave[rightWaveIndex].clone()
-                val adjBitSet = BitSet(nCol*nRow)
-                currentWave.stream()?.forEach { validIndex ->
-                    val bitSet = patternToAdj.get(validIndex)?.get(1)
-                    adjBitSet.or(bitSet)
-                }
-                wave[rightWaveIndex].and(adjBitSet)
-                if (oldWave != wave[rightWaveIndex]) rippledCells.add(rightWaveIndex)
-                entropy[rightWaveIndex] = wave[rightWaveIndex].cardinality()
-            }
-
-            if (!fixedCells.contains(leftWaveIndex) && leftWaveIndex != -1 && wave[leftWaveIndex].cardinality() > 1) {
-                val oldWave = wave[leftWaveIndex].clone()
-                val adjBitSet = BitSet(nCol*nRow)
-                currentWave.stream()?.forEach { validIndex ->
-                    val bitSet = patternToAdj[validIndex]?.get(3)
-                    adjBitSet.or(bitSet)
-                }
-                wave[leftWaveIndex].and(adjBitSet)
-                if (oldWave != wave[leftWaveIndex]) rippledCells.add(leftWaveIndex)
-                entropy[leftWaveIndex] = wave[leftWaveIndex].cardinality()
-
-            }
-
-            if (!fixedCells.contains(topWaveIndex) && topWaveIndex != -1 && wave[topWaveIndex].cardinality() > 1) {
-                val oldWave = wave[topWaveIndex].clone()
-                val adjBitSet = BitSet(nCol*nRow)
-                currentWave.stream()?.forEach { validIndex ->
-                    val bitSet = patternToAdj[validIndex]?.get(0)
-                    adjBitSet.or(bitSet)
-                }
-                wave[topWaveIndex].and(adjBitSet)
-                if (oldWave != wave[topWaveIndex]) rippledCells.add(topWaveIndex)
-                entropy[topWaveIndex] = wave[topWaveIndex].cardinality()
-
-            }
-
-            if (!fixedCells.contains(bottomWaveIndex) && bottomWaveIndex != -1 && wave[bottomWaveIndex].cardinality() > 1) {
-                val oldWave = wave[bottomWaveIndex].clone()
-                val adjBitSet = BitSet(nCol*nRow)
-                currentWave.stream()?.forEach { validIndex ->
-                    val bitSet = patternToAdj[validIndex]?.get(2)
-                    adjBitSet.or(bitSet)
-                }
-                wave[bottomWaveIndex].and(adjBitSet)
-                if (oldWave != wave[bottomWaveIndex]) rippledCells.add(bottomWaveIndex)
-                entropy[bottomWaveIndex] = wave[bottomWaveIndex].cardinality()
-
-            }
-
-            fixedCells.add(currentPosition)
-            rippledCells.remove(currentPosition)
-            if (rippledCells.isEmpty()) return
-            val lowestEntropy = rippledCells.indexOf(rippledCells.minBy { entropy[it] })
-            currentPosition = rippledCells[lowestEntropy]
-            //currentPosition = rippledCells.min()
+    private fun getAdjacentBitSet(adjIndex: Int, current: BitSet): BitSet {
+        val adjBitSet = BitSet(patternList.size)
+        current.stream()?.forEach { validIndex ->
+            val bitSet = patternToAdj[validIndex]?.get(adjIndex)
+            adjBitSet.or(bitSet)
         }
+        return adjBitSet
+    }
+
+    private fun ripple(position: Int) {
+        val visited = BitSet(wave.size)  // could be smaller -> size of uncertain waves(+1)
+        val carriesChange = BitSet(wave.size)
+        val queue: MutableList<Int> = mutableListOf(position)
+        carriesChange[position] = true
+        var rippleCount = 0
+        var depth = 0
+        var changeCount = 0
+
+        while (queue.isNotEmpty() && carriesChange.cardinality() > 0) {
+            val currWaveIndex = queue.removeAt(0)
+            if (!visited[currWaveIndex]) {
+                matrixAdj[currWaveIndex]?.forEachIndexed { direction, adjIndex ->
+                    if (adjIndex != -1) {
+                        if (!carriesChange[currWaveIndex]) {
+                            queue.add(adjIndex)
+                        } else {
+                            if (wave[adjIndex].cardinality() > 1) {
+                                val oldWave = wave[adjIndex].clone()
+                                rippleCount++
+                                wave[adjIndex].and(getAdjacentBitSet(direction, wave[currWaveIndex]))
+                                val changed = wave[adjIndex] != oldWave
+                                carriesChange[adjIndex] = changed
+                                if (changed) changeCount++
+
+                                queue.add(adjIndex)
+                            }
+                        }
+                    }
+                }
+                depth++
+                //if (depth > 200) break
+                visited[currWaveIndex] = true
+                carriesChange[currWaveIndex] = false
+            }
+            //if(!carriesChange.any { true }) break
+        }
+        Log.i(this.javaClass.name, "rippled waves: $rippleCount")
+        Log.i(this.javaClass.name, "rippled depth: $depth")
+        Log.i(this.javaClass.name, "changed: $changeCount")
     }
 
     private fun getCellWithLowestEntropy() : Int {
@@ -256,6 +233,21 @@ class GridView @JvmOverloads constructor(
         wave.forEach {
             it.flip(0,patternList.size)
         }
+        matrixAdj = matrixAdj(nCol,nRow)
+    }
+
+    private fun matrixAdj(nCol: Int, nRow: Int): HashMap<Int,MutableList<Int>> {
+        val adj: HashMap<Int,MutableList<Int>> = hashMapOf()
+        (0 until nCol*nRow).forEach { index ->
+            val currentRow = (index / nCol).absoluteValue
+            val currentCol = index % nCol
+            val top = if (currentRow == 0) -1 else index-nCol
+            val right = if (currentCol == nCol-1) -1 else index+1
+            val bottom = if (currentRow == nRow-1) -1 else index+nCol
+            val left = if (currentCol == 0) -1 else index-1
+            adj[index] = mutableListOf(top, right, bottom, left)
+        }
+        return adj
     }
 
     private fun setupOutputDimensions(w: Int, h: Int) {
