@@ -6,6 +6,7 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.View
 import androidx.annotation.ColorInt
+import androidx.core.graphics.scale
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.findViewTreeLifecycleOwner
 import androidx.lifecycle.findViewTreeViewModelStoreOwner
@@ -23,8 +24,8 @@ class GridView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
-    private val nCol = 64
-    private val nRow = 64
+    private val nCol = 56
+    private val nRow = 56
     private var cellWidth: Float = 0f
     private var cellHeight: Float = 0f
     private var screenWidth = 0
@@ -32,6 +33,8 @@ class GridView @JvmOverloads constructor(
     private val entropy = Array(nCol*nRow) {-1}
     private var outputCoords = mutableListOf <Pair<Float,Float>>()
     private lateinit var matrixAdj: HashMap<Int, MutableList<Int>>
+
+    private var bitmap: Bitmap? = null
 
     private lateinit var patternList: List<List<Int>>
     private lateinit var patternToSum: Map<Int, Int>
@@ -50,13 +53,14 @@ class GridView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        scope = CoroutineScope(SupervisorJob() + Default)
+        scope = CoroutineScope(Default)
         scope!!.launch {
             viewModel.eventFlow.collect { event ->
                 Log.i(this.javaClass.name, "event collected: $event")
                 when (event) {
                     is OutputViewEvent.Start -> {
                         delay(1000)
+                        bitmap = Bitmap.createBitmap(nCol, nRow, Bitmap.Config.ARGB_8888)
                         patternList = event.list
                         patternToSum = event.sum
                         patternToAdj = event.adj
@@ -64,6 +68,7 @@ class GridView @JvmOverloads constructor(
                         collapse()
                     }
                     is OutputViewEvent.Redo -> {
+                        bitmap = Bitmap.createBitmap(nCol, nRow, Bitmap.Config.ARGB_8888)
                         generateWave()
                         collapse()
                     }
@@ -80,21 +85,27 @@ class GridView @JvmOverloads constructor(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        setupOutputDimensions(w,h)
+        Log.i(this.javaClass.name, "screen width: $w")
+        Log.i(this.javaClass.name, "screen height: $h")
+        screenWidth = w
+        screenHeight = h
     }
 
     override fun onDraw(canvas: Canvas?) {
         super.onDraw(canvas)
         wave.forEachIndexed { index, bitSet ->
-            val coord = outputCoords.get(index)
             if(bitSet.cardinality() == 1) {
                 bitSet.stream().forEach {
-                    drawCell(canvas, coord, patternList.get(it).first())
+                    bitmap?.setPixel(index%nCol, (index/nCol).absoluteValue, patternList[it].first())
+                    //drawCell(canvas, outputCoords.get(index), patternList.get(it).first())
                 }
             }
             if(bitSet.cardinality() == 0) {
-                drawCell(canvas, coord, getRandomColor())
+                //drawCell(canvas, outputCoords.get(index), getRandomColor())
             }
+        }
+        bitmap?.let {
+            canvas?.drawBitmap(it.scale(screenWidth, screenHeight, false), 0F, 0F, null)
         }
     }
 
@@ -123,12 +134,12 @@ class GridView @JvmOverloads constructor(
 
             //pick random possible pattern to draw in tile
             //val patternToDraw = wave?.get(currentCell)?.stream()?.toArray()?.random()
-            val patternToDraw = wave.get(currentCell).stream()?.toList()
+            wave[currentCell].stream()?.toList()
                 ?.let {
                     getRandomPatternByWeight(it)
                 }?.let {
-                    wave.get(currentCell).clear()
-                    wave.get(currentCell).flip(it)
+                    wave[currentCell].clear()
+                    wave[currentCell].flip(it)
                 }
             entropy[currentCell] = 1
             invalidate()
@@ -136,8 +147,6 @@ class GridView @JvmOverloads constructor(
             //propagate changes to other tiles
             ripple(currentCell)
         }
-        scope?.cancel()
-        scope = null
         Log.d("-----", "Finshed")
     }
 
@@ -186,14 +195,14 @@ class GridView @JvmOverloads constructor(
         var depth = 0
         var changeCount = 0
 
-        while (queue.isNotEmpty() && carriesChange.cardinality() > 0) {
+        while (queue.isNotEmpty()) {// && carriesChange.cardinality() > 0) {
             val currWaveIndex = queue.removeAt(0)
             if (!visited[currWaveIndex]) {
                 matrixAdj[currWaveIndex]?.forEachIndexed { direction, adjIndex ->
                     if (adjIndex != -1) {
-                        if (!carriesChange[currWaveIndex]) {
-                            queue.add(adjIndex)
-                        } else {
+//                        if (!carriesChange[currWaveIndex]) {
+//                            queue.add(adjIndex)
+//                        } else {
                             if (wave[adjIndex].cardinality() > 1) {
                                 val oldWave = wave[adjIndex].clone()
                                 rippleCount++
@@ -204,19 +213,19 @@ class GridView @JvmOverloads constructor(
 
                                 queue.add(adjIndex)
                             }
-                        }
+                        //}
                     }
                 }
                 depth++
-                //if (depth > 200) break
+                if (depth > 300) break
                 visited[currWaveIndex] = true
                 carriesChange[currWaveIndex] = false
             }
             //if(!carriesChange.any { true }) break
         }
-        Log.i(this.javaClass.name, "rippled waves: $rippleCount")
-        Log.i(this.javaClass.name, "rippled depth: $depth")
-        Log.i(this.javaClass.name, "changed: $changeCount")
+        //Log.i(this.javaClass.name, "rippled waves: $rippleCount")
+        //Log.i(this.javaClass.name, "rippled depth: $depth")
+        //Log.i(this.javaClass.name, "changed: $changeCount")
     }
 
     private fun getCellWithLowestEntropy() : Int {
@@ -233,10 +242,10 @@ class GridView @JvmOverloads constructor(
         wave.forEach {
             it.flip(0,patternList.size)
         }
-        matrixAdj = matrixAdj(nCol,nRow)
+        matrixAdj = matrixAdj()
     }
 
-    private fun matrixAdj(nCol: Int, nRow: Int): HashMap<Int,MutableList<Int>> {
+    private fun matrixAdj(): HashMap<Int,MutableList<Int>> {
         val adj: HashMap<Int,MutableList<Int>> = hashMapOf()
         (0 until nCol*nRow).forEach { index ->
             val currentRow = (index / nCol).absoluteValue
@@ -248,46 +257,6 @@ class GridView @JvmOverloads constructor(
             adj[index] = mutableListOf(top, right, bottom, left)
         }
         return adj
-    }
-
-    private fun setupOutputDimensions(w: Int, h: Int) {
-        screenWidth = w
-        screenHeight = h
-        cellWidth = w.toFloat() / nCol.toFloat()
-        cellHeight = cellWidth
-        var x = 0f
-        for (i in 0 until nRow) {
-            var y = 0f
-            for (j in 0 until nCol){
-                outputCoords.add(Pair(x,y))
-                y += cellWidth
-            }
-            x += cellHeight
-        }
-    }
-
-    private fun drawCell(canvas: Canvas?, coord: Pair<Float,Float>, color: Int) {
-        val top = coord.first
-        val left = coord.second
-        val bottom = coord.first + cellHeight
-        val right = coord.second + cellWidth
-        canvas?.drawRect(
-            RectF(top, left, bottom, right),
-            getPaint(color)
-            //getPaint(getRandomColor())
-        )
-    }
-
-    private fun getPaint(@ColorInt color: Int) : Paint{
-        val paint = Paint()
-        paint.blendMode = BlendMode.MULTIPLY
-        paint.color = color
-        return paint
-    }
-
-    fun getRandomColor(): Int {
-        val rnd = Random()
-        return Color.argb(255, rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256))
     }
 
 }

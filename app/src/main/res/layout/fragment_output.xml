@@ -7,16 +7,26 @@
     android:layout_height="match_parent"
     tools:context=".ui.main.OutputFragment">
 
-    <view
-        android:id="@+id/view"
-        class="de.tob.wcf.GridView"
+    <androidx.cardview.widget.CardView
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="35dp"
         app:layout_constraintBottom_toTopOf="@+id/btnRedo"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <view
+            android:id="@+id/view"
+            class="de.tob.wcf.GridView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </androidx.cardview.widget.CardView>
 
     <Button
         android:id="@+id/btnRedo"
