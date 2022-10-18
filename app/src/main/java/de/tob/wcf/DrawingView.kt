@@ -46,21 +46,23 @@ class DrawingView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        scope = CoroutineScope(Dispatchers.IO)
 
         scope!!.launch {
-            viewModel.pixelFlow.collectLatest { pixelState ->
+            viewModel.pixelFlow.collect { pixelState ->
                 when (pixelState) {
                     is PixelState.Pixels -> {
                         input = pixelState.input
                         pixels = pixelState.input.pixels.toTypedArray()
                         nCol = Math.sqrt(pixels!!.size.toDouble()).toInt()
                         nRow = nCol
-                        invalidate()
+                        withContext(Dispatchers.Main.immediate) {
+                            invalidate()
+                        }
                     }
                 }
             }
-        }.cancel()
+        }
 
         scope!!.launch {
             viewModel.eventFlow.collect { event ->
@@ -102,6 +104,7 @@ class DrawingView @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         if (event != null) {
             when (event.action) {
+                MotionEvent.ACTION_DOWN,
                 MotionEvent.ACTION_MOVE -> {
                     val idx = coordToIndex(event.x,event.y)
                     if (fill) {
@@ -111,7 +114,6 @@ class DrawingView @JvmOverloads constructor(
                     } else {
                         pixels?.set(idx, currentColor)
                     }
-                    invalidate()
                 }
             }
             viewModel.mutatePixelState { PixelState.Pixels(input.copy(pixels=pixels!!.toList())) }
