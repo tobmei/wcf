@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Node tooling (Sandcastle)
+node_modules/

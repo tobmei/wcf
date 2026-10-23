@@ -1,0 +1,14 @@
+{
+  "name": "quantum-quilt-tooling",
+  "private": true,
+  "description": "Dev tooling only (Sandcastle agent orchestration). The app itself is Flutter.",
+  "type": "module",
+  "scripts": {
+    "sandcastle": "tsx .sandcastle/main.mts"
+  },
+  "devDependencies": {
+    "@ai-hero/sandcastle": "^0.12.0",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  }
+}
